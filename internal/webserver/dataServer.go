@@ -44,35 +44,21 @@ func StartDataServer() {
 		validatorsAll := []delivery.ValidatorsAll{}
 		latestBlocks := []delivery.LatestBlock{}
 
+		requests := map[*http.Request]any{
+			generalInfoRequest:     &generalInfo,
+			marketChartDataRequest: &marketChart,
+			validatorRequest:       &validator,
+			validatorsAllRequest:   &validatorsAll,
+			latestBlocksRequest:    &latestBlocks,
+		}
+
 		for {
-			err := getJsonFromResponse(client, generalInfoRequest, &generalInfo)
-			if err != nil {
-				log.Println(err)
-				continue
-			}
-
-			err = getJsonFromResponse(client, marketChartDataRequest, &marketChart)
-			if err != nil {
-				log.Println(err)
-				continue
-			}
-
-			err = getJsonFromResponse(client, validatorRequest, &validator)
-			if err != nil {
-				log.Println(err)
-				continue
-			}
-
-			err = getJsonFromResponse(client, validatorsAllRequest, &validatorsAll)
-			if err != nil {
-				log.Println(err)
-				continue
-			}
-
-			err = getJsonFromResponse(client, latestBlocksRequest, &latestBlocks)
-			if err != nil {
-				log.Println(err)
-				continue
+			for k, v := range requests {
+				err := getJsonFromResponse(client, k, v)
+				if err != nil {
+					log.Println(err)
+					continue
+				}
 			}
 
 			temp := delivery.Response{}
@@ -101,13 +87,9 @@ func StartDataServer() {
 					blocks[i].Reward = float32(latestBlocks[i].Rewards[0].Lamports) / 1_000_000_000
 				}
 			}
-
 			temp.BlockData = blocks
 
 			cache.Set(temp)
-
-			//fmt.Println("validatorsAll : ")
-			//fmt.Println(validatorsAll)
 
 			time.Sleep(5 * time.Second)
 		}
@@ -121,7 +103,7 @@ func addHeaders(requests ...*http.Request) {
 	}
 }
 
-func getJsonFromResponse[T delivery.ResponseJson](c *http.Client, r *http.Request, responseJson T) error {
+func getJsonFromResponse(c *http.Client, r *http.Request, responseJson any) error {
 
 	resp, err := c.Do(r)
 	if err != nil {
