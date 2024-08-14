@@ -32,7 +32,7 @@ func sendMessage(connection *websocket.Conn) {
 		if err != nil {
 			break
 		}
-		err = connection.WriteMessage(websocket.TextMessage, marshal)
+		err = connection.WriteJSON(marshal)
 		if err != nil {
 			break
 		}

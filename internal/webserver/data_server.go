@@ -8,10 +8,12 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"slices"
 	"time"
 )
 
 var token = "c756a91e-cf39-4ffc-ac28-3c286f6dbcad"
+var votePubkey = "he1iusunGwqrNtafDtLdhsUQDFvo13z9sUa36PauBtk"
 
 func StartDataServer() {
 	client := &http.Client{}
@@ -23,7 +25,7 @@ func StartDataServer() {
 		"GET", "https://api.solanabeach.io/v1/market-chart-data", nil,
 	)
 	validatorRequest, _ := http.NewRequest(
-		"GET", "https://api.solanabeach.io/v1/validator/he1iusunGwqrNtafDtLdhsUQDFvo13z9sUa36PauBtk", nil,
+		"GET", "https://api.solanabeach.io/v1/validator/"+votePubkey, nil,
 	)
 	validatorsAllRequest, _ := http.NewRequest(
 		"GET", "https://api.solanabeach.io/v1/validators/all", nil,
@@ -69,13 +71,9 @@ func StartDataServer() {
 
 			temp.Validator.Apy = generalInfo.StakingYield
 			temp.Validator.Staked = float32(validator.Validator.ActivatedStake / 1_000_000_000)
-			index := 0
-			for i := range validatorsAll {
-				if validatorsAll[i].VotePubkey == "he1iusunGwqrNtafDtLdhsUQDFvo13z9sUa36PauBtk" {
-					index = i
-				}
-			}
-			temp.Validator.Place = uint64(index + 1)
+
+			idx := slices.IndexFunc(validatorsAll, func(v delivery.ValidatorsAll) bool { return v.VotePubkey == votePubkey })
+			temp.Validator.Place = uint64(idx + 1)
 
 			blocks := make([]delivery.Block, 5)
 			for i := 0; i < 5; i++ {
