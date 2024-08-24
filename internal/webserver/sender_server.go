@@ -32,7 +32,8 @@ func sendMessage(connection *websocket.Conn) {
 		if err != nil {
 			break
 		}
-		err = connection.WriteJSON(marshal)
+		err = connection.WriteMessage(websocket.TextMessage, marshal)
+		//err = connection.WriteJSON(marshal)
 		if err != nil {
 			break
 		}
@@ -47,19 +48,3 @@ var upgrader = websocket.Upgrader{
 		return true // Пропускаем любой запрос
 	},
 }
-
-var msg = "hello world"
-
-/*
-func changeMessage() {
-	cache := singleton.GetInstance()
-
-	i := 0
-	for {
-
-		cache.SetString(msg + " : " + strconv.Itoa(i))
-		i++
-		fmt.Println(cache.GetString())
-		time.Sleep(1 * time.Second)
-	}
-}*/

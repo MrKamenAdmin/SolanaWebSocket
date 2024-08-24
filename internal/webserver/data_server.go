@@ -3,6 +3,9 @@ package webserver
 import (
 	"GorillaWebSocket/internal/delivery"
 	"GorillaWebSocket/internal/delivery/singleton"
+	"GorillaWebSocket/pkg/psql"
+	history_repo "GorillaWebSocket/pkg/psql/repos/history.repo"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,6 +19,12 @@ var token = "c756a91e-cf39-4ffc-ac28-3c286f6dbcad"
 var votePubkey = "he1iusunGwqrNtafDtLdhsUQDFvo13z9sUa36PauBtk"
 
 func StartDataServer() {
+
+	pool := psql.NewPool(context.Background(),
+		"postgresql://user:password@localhost:5432/gorilla?sslmode=disable",
+	)
+	repo := history_repo.New(pool)
+
 	client := &http.Client{}
 
 	generalInfoRequest, _ := http.NewRequest(
@@ -70,7 +79,7 @@ func StartDataServer() {
 			temp.Solana.Delta = generalInfo.DailyPriceChange
 
 			temp.Validator.Apy = generalInfo.StakingYield
-			temp.Validator.Staked = float32(validator.Validator.ActivatedStake / 1_000_000_000)
+			temp.Validator.Staked = float64(validator.Validator.ActivatedStake / 1_000_000_000)
 
 			idx := slices.IndexFunc(validatorsAll, func(v delivery.ValidatorsAll) bool { return v.VotePubkey == votePubkey })
 			temp.Validator.Place = uint64(idx + 1)
@@ -87,11 +96,49 @@ func StartDataServer() {
 			}
 			temp.BlockData = blocks
 
-			cache.Set(temp)
+			history, err := historyUpload(cache, repo, uint64(temp.Validator.Staked))
+			if err != nil {
+				log.Println(err)
+			}
+			temp.History = history
 
+			cache.Set(temp)
 			time.Sleep(5 * time.Second)
 		}
 	}()
+}
+
+func historyUpload(cache *singleton.Cache, repo *history_repo.Repo, stake uint64) ([]delivery.History, error) {
+	ctx := context.Background()
+	now := time.Now()
+	now = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	localHistory := cache.Get().History
+
+	if len(localHistory) == 0 {
+		history, err := repo.GetHistory(ctx)
+		if err != nil {
+			fmt.Println("Не смог получить историю из БД")
+			return nil, err
+		}
+
+		return history, nil
+	} else if localHistory[0].CaptureDate.Sub(now) != 0 {
+		err := repo.AddStake(ctx, stake, now)
+		if err != nil {
+			return nil, err
+		}
+
+		history, err := repo.GetHistory(ctx)
+		if err != nil {
+			fmt.Println("Не смог получить историю из БД")
+			return nil, err
+		}
+
+		return history, nil
+
+	} else {
+		return cache.Get().History, nil
+	}
 }
 
 func addHeaders(requests ...*http.Request) {

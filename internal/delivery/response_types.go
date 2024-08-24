@@ -9,7 +9,7 @@ type Solana struct {
 type ValidatorResponse struct {
 	Place  uint64  `json:"place"`
 	Apy    float64 `json:"apy"`
-	Staked float32 `json:"staked"`
+	Staked float64 `json:"staked"`
 }
 
 type Block struct {
